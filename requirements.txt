@@ -1,0 +1,3 @@
+# Background removal for InkwellOutput.remove_bg (InSPyReNet, MIT).
+# Imported lazily; its weights download on first use (never bundled).
+transparent-background>=1.2.12

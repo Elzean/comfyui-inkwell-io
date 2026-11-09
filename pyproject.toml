@@ -1,0 +1,21 @@
+[project]
+name = "comfyui-inkwell-io"
+description = "Nodes that let an app drive a ComfyUI graph through a stable contract: typed inputs found by class and key, optional image slots that never crash, and one output node with background removal, trim and lossless WebP."
+# Keep equal to __version__ in __init__.py (tests/test_pack_metadata.py checks).
+version = "1.1.0"
+license = { file = "LICENSE" }
+readme = "README.md"
+requires-python = ">=3.10"
+# transparent-background is only imported when InkwellOutput.remove_bg is on.
+dependencies = ["transparent-background>=1.2.12"]
+
+[project.urls]
+Repository = "https://github.com/Elzean/comfyui-inkwell-io"
+"Bug Tracker" = "https://github.com/Elzean/comfyui-inkwell-io/issues"
+
+[tool.comfy]
+# Must match the publisher you create on https://registry.comfy.org
+PublisherId = "elzean"
+DisplayName = "Inkwell IO"
+Icon = ""
+includes = []

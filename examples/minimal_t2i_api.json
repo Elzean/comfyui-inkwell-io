@@ -1,0 +1,77 @@
+{
+  "1": {
+    "class_type": "InkwellInputs",
+    "inputs": {
+      "contract_version": 1,
+      "id": "example_minimal_t2i",
+      "roles": "scene",
+      "description": "Minimal text-to-image example of the Inkwell IO contract.",
+      "prompt": "a quiet harbour at dusk",
+      "positive_style": "",
+      "negative": "blurry, low quality",
+      "seed": 0,
+      "width": 1024,
+      "height": 1024,
+      "refine_prompt": false,
+      "refine_instructions": "",
+      "preset": "custom",
+      "max_megapixels": 1.0,
+      "multiple": 16,
+      "max_side": 2048
+    },
+    "_meta": { "title": "Inkwell Inputs" }
+  },
+  "2": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": { "ckpt_name": "your_model.safetensors" },
+    "_meta": { "title": "Load Checkpoint (placeholder)" }
+  },
+  "3": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": ["1", 0], "clip": ["2", 1] },
+    "_meta": { "title": "Positive" }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": ["1", 2], "clip": ["2", 1] },
+    "_meta": { "title": "Negative" }
+  },
+  "5": {
+    "class_type": "EmptyLatentImage",
+    "inputs": { "width": ["1", 4], "height": ["1", 5], "batch_size": 1 },
+    "_meta": { "title": "Latent" }
+  },
+  "6": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["2", 0],
+      "positive": ["3", 0],
+      "negative": ["4", 0],
+      "latent_image": ["5", 0],
+      "seed": ["1", 3],
+      "steps": 20,
+      "cfg": 7.0,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1.0
+    },
+    "_meta": { "title": "Sampler" }
+  },
+  "7": {
+    "class_type": "VAEDecode",
+    "inputs": { "samples": ["6", 0], "vae": ["2", 2] },
+    "_meta": { "title": "Decode" }
+  },
+  "8": {
+    "class_type": "InkwellOutput",
+    "inputs": {
+      "images": ["7", 0],
+      "remove_bg": false,
+      "trim": false,
+      "filename_prefix": "Inkwell",
+      "folder": "",
+      "kind": "scene"
+    },
+    "_meta": { "title": "Inkwell Output" }
+  }
+}
