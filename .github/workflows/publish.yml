@@ -15,7 +15,7 @@ jobs:
     if: ${{ github.repository_owner == 'Elzean' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: Comfy-Org/publish-node-action@v1
         with:
           # Create the key at https://registry.comfy.org (publisher → API keys),

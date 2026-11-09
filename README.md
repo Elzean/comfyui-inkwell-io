@@ -8,6 +8,11 @@ says what it supports, so the app doesn't guess.
 Written for [Inkwell](https://store.steampowered.com/app/1914280/), usable by any app or bot.
 Category in the node menu: **Inkwell**.
 
+![A text-to-image graph driven by Inkwell Inputs and saved by Inkwell Output](docs/images/hero_graph.webp)
+
+*A plain text-to-image graph: the app fills **Inkwell Inputs** (prompt, negative, seed, size)
+and reads the file **Inkwell Output** saves. Everything in between is ordinary ComfyUI.*
+
 What you get:
 
 - **Typed inputs** (prompt, negative, seed, frame size, …) on one node, plus one-value extras
@@ -72,6 +77,8 @@ added as optional inputs so older saved graphs still validate.
 
 ### InkwellInputs — exactly one per graph
 
+<img src="docs/images/inkwell_inputs.webp" width="320" alt="Inkwell Inputs node: outputs prompt, positive_style, negative, seed, width, height, refine_prompt, refine_instructions; widgets for id, roles, the text fields, seed, size and frame fallback">
+
 Metadata widgets (not outputs):
 
 | Widget | Type | Notes |
@@ -111,6 +118,8 @@ of 16 and 2360 is over 2048. With the defaults it becomes 1536×2048.
 
 ### InkwellImages — at most one per graph
 
+<img src="docs/images/inkwell_images.webp" width="240" alt="Inkwell Images node: an image and a present output for each of ten slots, then mask and mask_present; one path widget per slot">
+
 Widgets `image`, `image_2` … `image_10` and `mask` are path strings and may be empty.
 A path can be absolute, relative to the ComfyUI input directory, or `name.png [input]`.
 Only the paths that are set get loaded. A set path that does not exist is an error.
@@ -131,6 +140,8 @@ A mask comes from the alpha channel when the file has one (1 − alpha, as in Lo
 Otherwise it comes from the luminance (white = masked).
 
 ### InkwellOutput — one or more per graph (output node)
+
+<img src="docs/images/inkwell_output.webp" width="300" alt="Inkwell Output node set to remove the background, trim, and save lossless WebP">
 
 | Input | Type | Notes |
 |---|---|---|
@@ -160,6 +171,8 @@ Metadata is embedded unless ComfyUI runs with `--disable-metadata`.
 
 ### InkwellLoadImageFromPath — path loader
 
+<img src="docs/images/inkwell_load_image_from_path.webp" width="320" alt="Inkwell Load Image From Path node: one image path widget; outputs image, mask and present">
+
 For graphs that find their inputs another way (for example by title) and only need to open a
 file. Widget `image`; outputs IMAGE at 0, MASK at 1, `present` BOOLEAN at 2 — the same first
 two outputs as the common third-party `LoadImageFromPath` (Ib_CustomNodes), so it can replace
@@ -170,6 +183,8 @@ gives the placeholder and `present = false`.
 It is not a contract node: contract graphs use `InkwellImages` / `InkwellImage`.
 
 ### Extras — one value each
+
+<img src="docs/images/inkwell_extras.webp" width="600" alt="The four extras: Inkwell Text keyed positive_outfit, Inkwell Toggle keyed same_size_as_input, Inkwell Number keyed steps, Inkwell Image keyed openpose">
 
 Every extra has the widgets `key`, `label` and `group` (the last two are for the app's form).
 
