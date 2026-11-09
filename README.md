@@ -1,96 +1,97 @@
-# Inkwell IO — ComfyUI nodes for apps that drive graphs
+# Inkwell IO
 
-Nodes that give a ComfyUI graph a stable interface for a program to call through the
-ComfyUI API. An app finds the nodes by `class_type` (and by a `key` widget on extras), never
-by node title, so renaming a node in the ComfyUI UI cannot break a binding. The graph itself
-says what it supports, so the app doesn't guess.
+ComfyUI nodes for driving a graph from your own program through the ComfyUI API.
 
-Written for [Inkwell](https://store.steampowered.com/app/1914280/), usable by any app or bot.
-Category in the node menu: **Inkwell**.
+I wrote these for [Inkwell](https://store.steampowered.com/app/1914280/), a game that generates
+its scenes and characters with ComfyUI, but nothing in them is specific to Inkwell. Your app
+looks the nodes up by `class_type` (and extras by their `key` widget) instead of by node title,
+so renaming a node in ComfyUI doesn't break anything. The graph's wiring also tells the app
+which inputs it actually uses.
 
-![A text-to-image graph driven by Inkwell Inputs and saved by Inkwell Output](docs/images/hero_graph.webp)
+The nodes are in the **Inkwell** category of the node menu.
 
-*A plain text-to-image graph: the app fills **Inkwell Inputs** (prompt, negative, seed, size)
-and reads the file **Inkwell Output** saves. Everything in between is ordinary ComfyUI.*
+![A text-to-image graph with Inkwell Inputs on the left and Inkwell Output on the right](docs/images/hero_graph.webp)
 
-What you get:
+A basic text-to-image graph. The app writes the prompt, negative, seed and size into Inkwell
+Inputs, and picks up the file Inkwell Output saves. The nodes in between are standard ComfyUI.
 
-- **Typed inputs** (prompt, negative, seed, frame size, …) on one node, plus one-value extras
-  found by `key`.
-- **Optional image slots that never crash.** An empty slot gives a 64×64 placeholder and
-  `present = false`, instead of failing the prompt the way an empty `LoadImage` does.
-- **One output node** that removes the background, trims to the subject, zeroes colour under
-  clear alpha, and writes PNG or lossless WebP with the workflow metadata kept.
-- **A path loader** (`InkwellLoadImageFromPath`) that opens PNG, WebP and JPEG from an absolute
-  or input-relative path.
+The pack has:
+
+- one node for the common inputs (prompt, negative, seed, frame size and a few more), plus
+  single-value nodes for anything else, each found by a `key`;
+- an image node with ten optional slots. An empty slot outputs a 64×64 placeholder and
+  `present = false`, so the prompt still runs where an empty `LoadImage` would fail;
+- an output node that can remove the background, trim to the subject and save PNG or lossless
+  WebP, keeping the workflow metadata;
+- a loader that opens PNG, WebP or JPEG from a path (`InkwellLoadImageFromPath`).
 
 ## Install
 
-- **ComfyUI-Manager / Comfy Registry:** search for *Inkwell IO*.
-- **By hand:** clone into `ComfyUI/custom_nodes/`, then
-  `pip install -r requirements.txt` in ComfyUI's Python, and restart ComfyUI.
+From ComfyUI-Manager or the Comfy Registry, search for "Inkwell IO".
 
-**Using the Inkwell app?** It installs and updates its own copy
-(`custom_nodes/inkwell_io`). Don't install a second copy: two packs registering the same
-classes conflict.
+By hand: clone this repo into `ComfyUI/custom_nodes/`, run `pip install -r requirements.txt`
+with ComfyUI's Python, and restart ComfyUI.
 
-The only dependency, [transparent-background](https://github.com/plemeri/transparent-background)
-(MIT), is imported only when `remove_bg` is on. Its InSPyReNet weights download on first use
-under their own terms; they are not part of this pack.
+If you use the Inkwell app, don't install it here as well. Inkwell installs and updates its own
+copy in `custom_nodes/inkwell_io`, and two copies of the pack register the same node classes.
 
-## Building an app on it
+The one dependency is [transparent-background](https://github.com/plemeri/transparent-background)
+(MIT), and it's only imported when `remove_bg` is on. It downloads its InSPyReNet weights the
+first time it runs. Those weights aren't part of this pack and come with their own licence.
 
-A graph that has an `InkwellInputs` node is a **contract graph**. To drive one:
+## Using it from an app
 
-1. **Find nodes by class.** `InkwellInputs` (exactly 1), `InkwellImages` (0–1),
-   `InkwellOutput` (1 or more), and any number of extras (`InkwellText`, `InkwellToggle`,
-   `InkwellNumber`, `InkwellImage`), each identified by its `key` widget.
-2. **Only wired fields count.** A field of `InkwellInputs` / `InkwellImages` is supported only
-   when its output is linked to another node. A graph that never uses the seed has no seed
-   field. The number of image slots is the highest wired slot.
-3. **Write values into widgets,** then queue the graph with `POST /prompt` as usual. Read
-   results from `ui.images` of each `InkwellOutput`, which has the same shape as `SaveImage`.
-4. **Check `contract_version`.** It's on `InkwellInputs`; refuse a graph newer than the
-   version your app understands (currently `1`).
+A graph with an `InkwellInputs` node in it is what I call a contract graph. To run one from
+code:
 
-Rules a valid contract graph follows:
+1. Find the nodes by class: `InkwellInputs` (one), `InkwellImages` (none or one),
+   `InkwellOutput` (one or more), and any extras (`InkwellText`, `InkwellToggle`,
+   `InkwellNumber`, `InkwellImage`), told apart by their `key` widget.
+2. Treat a field of `InkwellInputs` or `InkwellImages` as supported only if its output is linked
+   to something. If a graph doesn't use the seed, don't offer a seed. The number of image slots
+   is the highest one that's wired.
+3. Set the widget values and queue the graph with `POST /prompt`. Each `InkwellOutput` reports
+   its files in `ui.images`, in the same shape as `SaveImage`.
+4. Read `contract_version` on `InkwellInputs` and skip graphs newer than your app supports. It's
+   `1` today.
 
-- Exactly one `InkwellInputs`, with an `id`. At most one `InkwellImages`. At least one
-  `InkwellOutput`.
-- Width and height are wired together or not at all.
-- Wired image slots are contiguous from `image` (no `image_3` without `image_2`).
-- Every extra has a literal `key`, unique in the graph: a shared key below or a
-  graph-specific `x_<name>`. It must not reuse an Inputs/Images field name.
+A contract graph also follows these rules:
 
-Shared extra keys: `positive_outfit`, `description`, `emotions`, `regions` (text);
-`same_size_as_input` (toggle); `steps`, `cfg`, `denoise`, `mask_blur` (number);
+- one `InkwellInputs` with an `id`, at most one `InkwellImages`, at least one `InkwellOutput`;
+- width and height are either both wired or both unwired;
+- wired image slots start at `image` with no gaps, so no `image_3` without `image_2`;
+- each extra has a literal `key` that's unique in the graph. Use one of the shared keys below or
+  a graph-specific `x_<name>`, and don't reuse the name of an Inputs or Images field.
+
+Shared extra keys: `positive_outfit`, `description`, `emotions` and `regions` (text);
+`same_size_as_input` (toggle); `steps`, `cfg`, `denoise` and `mask_blur` (number);
 `openpose` (image).
 
-### Output indices are append-only
+### Output order doesn't change
 
-Saved graphs link to outputs **by index**. A new field is appended; an existing index is never
-reordered or reused. The order lives in `inkwell_core.py` (`INPUTS_OUTPUTS`, `IMAGES_OUTPUTS`).
-Class names, widget names and output order are kept stable across versions; new widgets are
-added as optional inputs so older saved graphs still validate.
+Saved graphs connect to outputs by index, so new outputs only ever go at the end and existing
+ones are never moved or reused. The order is defined in `inkwell_core.py` (`INPUTS_OUTPUTS`,
+`IMAGES_OUTPUTS`). Class names and widget names stay the same between versions too, and new
+widgets are added as optional inputs so graphs saved with an older version still load.
 
 ## Nodes
 
-### InkwellInputs — exactly one per graph
+### InkwellInputs (one per graph)
 
 <img src="docs/images/inkwell_inputs.webp" width="320" alt="Inkwell Inputs node: outputs prompt, positive_style, negative, seed, width, height, refine_prompt, refine_instructions; widgets for id, roles, the text fields, seed, size and frame fallback">
 
-Metadata widgets (not outputs):
+These widgets describe the graph and have no outputs:
 
 | Widget | Type | Notes |
 |---|---|---|
 | `contract_version` | INT, default 1 | Must not be newer than the app's version |
-| `id` | STRING | Id the app knows this graph by. Required |
-| `roles` | STRING | Comma list of what the graph is for, e.g. `location_image, tpose` |
+| `id` | STRING | The id your app knows this graph by. Required |
+| `roles` | STRING | Comma-separated list of what the graph is for, e.g. `location_image, tpose` |
 | `description` | STRING, multiline | |
 
-Frame-fallback widgets (not outputs): `preset` (`custom`, `21:9`, `16:9`, `3:2`, `4:3`, `1:1`,
-`3:4`, `2:3`, `9:16`), `max_megapixels` (default 1.0), `multiple` (default 16), `max_side`
-(default 2048).
+`preset` (`custom`, `21:9`, `16:9`, `3:2`, `4:3`, `1:1`, `3:4`, `2:3`, `9:16`), `max_megapixels`
+(default 1.0), `multiple` (default 16) and `max_side` (default 2048) control the frame size and
+have no outputs either.
 
 Outputs:
 
@@ -105,24 +106,24 @@ Outputs:
 | 6 | `refine_prompt` | BOOLEAN |
 | 7 | `refine_instructions` | STRING |
 
-**Frame rule.** The app picks the exact width × height. The node:
+The app normally sets the exact width and height. The node then:
 
-1. If `preset` is a ratio and width or height is 0, derives the size from the ratio and
-   `max_megapixels`. This is the fallback for running the graph by hand.
-2. If the longest side is over `max_side`, scales the size down to it, keeping the ratio.
-3. Snaps each side to the nearest `multiple` (a half rounds up), without going past `max_side`.
+1. works out a size from the ratio and `max_megapixels` when `preset` is a ratio and width or
+   height is 0 (useful when you run the graph by hand);
+2. scales the size down to `max_side` if the longest side is bigger, keeping the ratio;
+3. rounds each side to the nearest `multiple` (halves round up) without going over `max_side`.
 
-With the defaults (16 / 2048), sizes such as 960×1280 and 1536×2048 pass through unchanged.
-1768×2360 needs `multiple` 8 and `max_side` ≥ 2360 in the graph, because 1768 is not a multiple
-of 16 and 2360 is over 2048. With the defaults it becomes 1536×2048.
+With the defaults (16 and 2048), 960×1280 and 1536×2048 come out unchanged. 1768×2360 needs
+`multiple` set to 8 and `max_side` to at least 2360, since 1768 isn't a multiple of 16 and 2360
+is over 2048; with the defaults it becomes 1536×2048.
 
-### InkwellImages — at most one per graph
+### InkwellImages (at most one per graph)
 
 <img src="docs/images/inkwell_images.webp" width="240" alt="Inkwell Images node: an image and a present output for each of ten slots, then mask and mask_present; one path widget per slot">
 
-Widgets `image`, `image_2` … `image_10` and `mask` are path strings and may be empty.
-A path can be absolute, relative to the ComfyUI input directory, or `name.png [input]`.
-Only the paths that are set get loaded. A set path that does not exist is an error.
+The `image`, `image_2` … `image_10` and `mask` widgets hold file paths and can be left empty.
+A path can be absolute, relative to ComfyUI's input folder, or written as `name.png [input]`.
+Only filled-in paths are loaded, and a path that doesn't exist is an error.
 
 | # | Output | Type |
 |---|---|---|
@@ -131,83 +132,89 @@ Only the paths that are set get loaded. A set path that does not exist is an err
 | 20 | `mask` | MASK |
 | 21 | `mask_present` | BOOLEAN |
 
-Full table: 0 `image`, 1 `image_present`, 2 `image_2`, 3 `image_2_present`, … 18 `image_10`,
+In full: 0 `image`, 1 `image_present`, 2 `image_2`, 3 `image_2_present`, … 18 `image_10`,
 19 `image_10_present`, 20 `mask`, 21 `mask_present`.
 
-An empty slot gives a 64×64 black image (or an empty 64×64 mask) and `present = False`. Wire
-`present` into a switch when the graph must behave differently without a reference.
-A mask comes from the alpha channel when the file has one (1 − alpha, as in LoadImage).
-Otherwise it comes from the luminance (white = masked).
+An empty slot outputs a 64×64 black image (or an empty 64×64 mask) with `present = False`. Wire
+`present` into a switch if the graph should do something different when there's no reference.
+The mask comes from the alpha channel if the file has one (1 − alpha, like `LoadImage`), and
+from the brightness otherwise (white is masked).
 
-### InkwellOutput — one or more per graph (output node)
+### InkwellOutput (one or more per graph)
 
 <img src="docs/images/inkwell_output.webp" width="300" alt="Inkwell Output node set to remove the background, trim, and save lossless WebP">
 
 | Input | Type | Notes |
 |---|---|---|
 | `images` | IMAGE | |
-| `remove_bg` | BOOLEAN | Cuts out the background with transparent-background (InSPyReNet). The model loads only when this is on, and is then cached |
-| `trim` | BOOLEAN | Crops to the alpha bounding box. A fully opaque or fully clear image is kept as is |
+| `remove_bg` | BOOLEAN | Removes the background with transparent-background (InSPyReNet). The model is loaded the first time this is on and kept afterwards |
+| `trim` | BOOLEAN | Crops to the visible part of the image. Fully opaque or fully transparent images are left alone |
 | `filename_prefix` | STRING | Default `Inkwell` |
-| `folder` | STRING | Subfolder of the ComfyUI output directory. Absolute paths and `..` are refused |
-| `kind` | STRING | What this output is (`scene`, `portrait`, …). Stored as `inkwell_kind` in the file metadata |
-| `format` | `png` / `webp` (optional) | Default `png`, so a graph saved before this widget keeps writing PNG |
-| `quality` | INT 1–100 (optional) | WebP only. `100` (default) is lossless; lower is lossy |
+| `folder` | STRING | Subfolder of ComfyUI's output folder. Absolute paths and `..` are rejected |
+| `kind` | STRING | A label for the output (`scene`, `portrait`, …), saved as `inkwell_kind` in the file's metadata |
+| `format` | `png` / `webp` (optional) | Default `png`, so graphs saved before this option existed still write PNG |
+| `quality` | INT 1–100 (optional) | WebP only. 100 (the default) is lossless, anything lower is lossy |
 
-It writes RGBA with RGB set to 0 wherever alpha is 0, and returns `ui.images` in the same
-shape as SaveImage: `{filename, subfolder, type: "output"}`.
+Images are saved as RGBA, with the colour set to black wherever a pixel is fully transparent.
+The node reports its files in `ui.images` like `SaveImage` does:
+`{filename, subfolder, type: "output"}`.
 
-- **PNG:** RGBA. The prompt / workflow metadata is in PNG text chunks.
-- **WebP:** a fully opaque image drops its alpha channel (smaller, same pixels). An image wider or
-  taller than 16383 px (libwebp's limit) is written as PNG instead. Metadata goes in EXIF the way
-  ComfyUI's own WebP savers lay it out: `0x0110` = `prompt:<json>`, then `0x010F` downwards =
-  `<key>:<json>` per `extra_pnginfo` entry (workflow, …), then `inkwell_kind:<kind>`.
-  `inkwell_core.read_webp_metadata` reads it back.
+PNG files keep the prompt and workflow in PNG text chunks.
 
-Lossless WebP is usually 25–40% smaller than PNG with identical pixels. Keep originals lossless
-if they may be edited again; make lossy copies for display.
+WebP files drop the alpha channel when the image is fully opaque, which makes them smaller
+without changing any pixels. Anything wider or taller than 16383 px is saved as PNG instead,
+since that's WebP's size limit. The metadata goes in EXIF, laid out the same way as ComfyUI's
+own WebP nodes: `0x0110` holds `prompt:<json>`, then each `extra_pnginfo` entry (the workflow
+and so on) goes in `0x010F` and the tags below it as `<key>:<json>`, followed by
+`inkwell_kind:<kind>`. `inkwell_core.read_webp_metadata` reads it back.
 
-Metadata is embedded unless ComfyUI runs with `--disable-metadata`.
+In my tests lossless WebP came out 25–40% smaller than PNG. If you might edit an image again
+later, keep the lossless original and make lossy copies for display.
 
-### InkwellLoadImageFromPath — path loader
+Metadata isn't written when ComfyUI runs with `--disable-metadata`.
+
+### InkwellLoadImageFromPath
 
 <img src="docs/images/inkwell_load_image_from_path.webp" width="320" alt="Inkwell Load Image From Path node: one image path widget; outputs image, mask and present">
 
-For graphs that find their inputs another way (for example by title) and only need to open a
-file. Widget `image`; outputs IMAGE at 0, MASK at 1, `present` BOOLEAN at 2 — the same first
-two outputs as the common third-party `LoadImageFromPath` (Ib_CustomNodes), so it can replace
-it in a graph by changing the class name. The path is read like the other image widgets:
-absolute, ComfyUI input-relative, or `x.png [input]`; PNG, WebP and JPEG all open. An empty path
-gives the placeholder and `present = false`.
+A plain file loader for graphs that don't use the contract, for example ones that find their
+inputs by node title. It has one `image` widget and outputs IMAGE (0), MASK (1) and `present`
+(2). The first two match the `LoadImageFromPath` node from Ib_CustomNodes, so you can switch a
+graph over by changing the class name. Paths work the same as in the other image nodes
+(absolute, relative to the input folder, or `x.png [input]`), and PNG, WebP and JPEG all load.
+An empty path gives the placeholder image and `present = false`.
 
-It is not a contract node: contract graphs use `InkwellImages` / `InkwellImage`.
+Contract graphs should use `InkwellImages` or `InkwellImage` instead.
 
-### Extras — one value each
+### Extras
 
 <img src="docs/images/inkwell_extras.webp" width="600" alt="The four extras: Inkwell Text keyed positive_outfit, Inkwell Toggle keyed same_size_as_input, Inkwell Number keyed steps, Inkwell Image keyed openpose">
 
-Every extra has the widgets `key`, `label` and `group` (the last two are for the app's form).
+Each extra holds a single value. They all have `key`, `label` and `group` widgets; `label` and
+`group` are only there to help an app build its form.
 
 | Class | Value widgets | Outputs |
 |---|---|---|
 | `InkwellText` | `value` (multiline) | 0 STRING |
 | `InkwellToggle` | `value` | 0 BOOLEAN |
-| `InkwellNumber` | `value`, `min`, `max`, `step` | 0 INT (rounded), 1 FLOAT. Clamped to min…max unless min = max |
+| `InkwellNumber` | `value`, `min`, `max`, `step` | 0 INT (rounded), 1 FLOAT. Kept between min and max unless they're equal |
 | `InkwellImage` | `path` | 0 IMAGE, 1 MASK, 2 `present` BOOLEAN |
 
 ## Example
 
-`examples/minimal_t2i_api.json` is an API-format graph: Inputs → checkpoint / CLIP / KSampler
-(placeholders) → Output. It is a valid contract graph.
+`examples/minimal_t2i_api.json` is a small contract graph in API format: Inputs, then a
+checkpoint, CLIP and KSampler with placeholder settings, then Output.
 
-## Layout and tests
+## Code and tests
 
-- `inkwell_core.py`: pure logic (output tables, frame math, ratio presets, alpha cleanup,
-  trim, image loading, save planning, WebP metadata). It imports neither torch nor comfy.
-- `nodes.py`: the ComfyUI classes plus `NODE_CLASS_MAPPINGS` / `NODE_DISPLAY_NAME_MAPPINGS`.
-- `tests/`: pytest for `inkwell_core` and the pack metadata. Run `python -m pytest tests`
-  (needs numpy, Pillow and pytest; no GPU, torch or ComfyUI).
+- `inkwell_core.py` has the logic that doesn't need ComfyUI: output tables, frame sizes, ratio
+  presets, alpha cleanup, trimming, image loading, choosing the file format and WebP metadata.
+  It doesn't import torch or comfy.
+- `nodes.py` has the ComfyUI node classes and `NODE_CLASS_MAPPINGS` /
+  `NODE_DISPLAY_NAME_MAPPINGS`.
+- `tests/` has the pytest suite. Run `python -m pytest tests`. It only needs numpy, Pillow and
+  pytest (no GPU, torch or ComfyUI).
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
